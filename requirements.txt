@@ -1,5 +1,6 @@
 Flask
-gunicorn
+flask-cors
 flask-jwt-extended
+pywhatkit
+pyautogui
 requests
-reportlab
