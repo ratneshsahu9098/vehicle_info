@@ -1,9 +1,13 @@
 from flask import Flask, render_template, request, redirect, session, url_for, jsonify
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required
+from flask_cors import CORS
+from datetime import datetime
 
 import sqlite3
 
 app = Flask(__name__)
+
+CORS(app)
 
 app.secret_key = "supersecretkey"
 app.config["JWT_SECRET_KEY"] = "jwt-secret-key"
@@ -11,6 +15,204 @@ app.config["JWT_SECRET_KEY"] = "jwt-secret-key"
 jwt = JWTManager(app)
 
 DB_FILE = "vehicles.db"
+
+# -------------------------
+# CREATE DATABASE TABLES
+# -------------------------
+
+conn = sqlite3.connect(DB_FILE)
+
+cursor = conn.cursor()
+
+# VEHICLES TABLE
+
+cursor.execute("""
+
+CREATE TABLE IF NOT EXISTS
+vehicles (
+
+    id INTEGER
+    PRIMARY KEY AUTOINCREMENT,
+
+    vehicle_number TEXT,
+
+    expiry_date TEXT,
+
+    phone TEXT,
+
+    owner TEXT
+)
+
+""")
+
+# HISTORY TABLE
+
+cursor.execute("""
+
+CREATE TABLE IF NOT EXISTS
+vehicle_history (
+
+    id INTEGER
+    PRIMARY KEY AUTOINCREMENT,
+
+    vehicle_id INTEGER,
+
+    vehicle_number TEXT,
+
+    expiry_date TEXT,
+
+    phone TEXT,
+
+    owner TEXT,
+
+    edited_at TEXT
+)
+
+""")
+
+conn.commit()
+
+conn.close()
+
+# -------------------------
+# VEHICLE HISTORY API
+# -------------------------
+
+@app.route(
+
+    "/api/vehicle_history/<int:id>",
+
+    methods=["GET"]
+)
+
+@jwt_required()
+
+def vehicle_history_api(id):
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+
+    SELECT
+        vehicle_number,
+        expiry_date,
+        phone,
+        owner,
+        edited_at
+
+    FROM vehicle_history
+
+    WHERE vehicle_id=?
+
+    ORDER BY id DESC
+
+    """, (id,))
+
+    history = cursor.fetchall()
+
+    conn.close()
+
+    result = []
+
+    for row in history:
+
+        result.append({
+
+            "vehicle_number": row[0],
+
+            "expiry_date": row[1],
+
+            "phone": row[2],
+
+            "owner": row[3],
+
+            "edited_at": row[4]
+        })
+
+    return jsonify(result)
+
+# -------------------------
+# ADD VEHICLE API
+# -------------------------
+
+@app.route(
+    "/api/add_vehicle",
+    methods=["POST"]
+)
+
+@jwt_required()
+
+def add_vehicle_api():
+
+    data = request.get_json()
+
+    vehicle_number = data["vehicle_number"]
+
+    expiry_date = data["expiry_date"]
+
+    phone = data["phone"]
+
+    owner = data["owner"]
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+
+CREATE TABLE IF NOT EXISTS
+vehicle_history (
+
+    id INTEGER
+    PRIMARY KEY AUTOINCREMENT,
+
+    vehicle_id INTEGER,
+
+    vehicle_number TEXT,
+
+    expiry_date TEXT,
+
+    phone TEXT,
+
+    owner TEXT,
+
+    edited_at TEXT
+)
+
+""")
+
+    cursor.execute("""
+
+    INSERT INTO vehicles (
+
+        vehicle_number,
+        expiry_date,
+        phone,
+        owner
+
+    )
+
+    VALUES (?, ?, ?, ?)
+
+    """, (
+
+        vehicle_number,
+        expiry_date,
+        phone,
+        owner
+    ))
+
+    conn.commit()
+
+    conn.close()
+
+    return jsonify({
+
+        "message":
+        "Vehicle added"
+    })
 
 # -------------------------
 # LOGIN
@@ -40,6 +242,8 @@ def login():
     return render_template("login.html", error=error)
 
 
+
+
 # -------------------------
 # LOGOUT
 # -------------------------
@@ -53,9 +257,130 @@ def logout():
     return redirect("/login")
 
 
+
 # -------------------------
-# HOME PAGE
+# DELETE VEHICLE API
 # -------------------------
+
+@app.route(
+    "/api/delete_vehicle/<int:id>",
+    methods=["DELETE"]
+)
+
+@jwt_required()
+
+def delete_vehicle_api(id):
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+
+    DELETE FROM vehicles
+
+    WHERE id=?
+
+    """, (id,))
+
+    conn.commit()
+
+    conn.close()
+
+    return jsonify({
+
+        "message":
+        "Vehicle deleted"
+    })
+
+# -------------------------
+# UPDATE VEHICLE API
+# -------------------------
+
+@app.route(
+    "/api/update_vehicle/<int:id>",
+    methods=["PUT"]
+)
+
+@jwt_required()
+
+def update_vehicle_api(id):
+
+    data = request.get_json()
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    #GET OLD DATA
+
+    # GET OLD DATA
+
+    cursor.execute(
+        "SELECT * FROM vehicles WHERE id=?",
+        (id,)
+    )
+
+    old_vehicle = cursor.fetchone()
+
+    # SAVE INTO HISTORY
+
+    from datetime import datetime
+
+    cursor.execute("""
+        INSERT INTO vehicle_history (
+            vehicle_id,
+            vehicle_number,
+            expiry_date,
+            phone,
+            owner,
+            edited_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        old_vehicle[0],
+        old_vehicle[1],
+        old_vehicle[2],
+        old_vehicle[3],
+        old_vehicle[4],
+        datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+    ))
+
+
+    cursor.execute("""
+
+    UPDATE vehicles
+
+    SET
+      vehicle_number=?,
+      expiry_date=?,
+      phone=?,
+      owner=?
+
+    WHERE id=?
+
+    """, (
+
+        data["vehicle_number"],
+        data["expiry_date"],
+        data["phone"],
+        data["owner"],
+        id
+    ))
+
+    conn.commit()
+
+    conn.close()
+
+    return jsonify({
+
+        "message":
+        "Vehicle updated"
+    })
+
+
 # -------------------------
 # HOME PAGE
 # -------------------------
