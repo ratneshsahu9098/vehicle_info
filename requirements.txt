@@ -1,0 +1,7 @@
+# File: requirements.txt
+
+requests
+python-dotenv
+schedule
+flask
+pip freeze > requirements.txt

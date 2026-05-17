@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Edit Vehicle</title>
+
+    <style>
+
+        body {
+
+            font-family: Arial;
+
+            background: #f5f5f5;
+
+            margin: 0;
+
+            padding: 0;
+        }
+
+        .navbar {
+
+            background: #111;
+
+            color: white;
+
+            padding: 15px 30px;
+
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+        }
+
+        .navbar h2 {
+            margin: 0;
+        }
+
+        .back-btn {
+
+            background: orange;
+
+            color: white;
+
+            padding: 10px 15px;
+
+            border-radius: 5px;
+
+            text-decoration: none;
+        }
+
+        .container {
+
+            width: 450px;
+
+            margin: auto;
+
+            margin-top: 50px;
+        }
+
+        .card {
+
+            background: white;
+
+            padding: 25px;
+
+            border-radius: 12px;
+
+            box-shadow: 0px 0px 15px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+
+            text-align: center;
+
+            margin-bottom: 25px;
+        }
+
+        input {
+
+            width: 100%;
+
+            padding: 14px;
+
+            margin-top: 12px;
+
+            border: 1px solid #ccc;
+
+            border-radius: 6px;
+
+            box-sizing: border-box;
+        }
+
+        button {
+
+            width: 100%;
+
+            padding: 14px;
+
+            margin-top: 18px;
+
+            background: #111;
+
+            color: white;
+
+            border: none;
+
+            border-radius: 6px;
+
+            cursor: pointer;
+
+            font-size: 15px;
+        }
+
+        button:hover {
+            background: #333;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <div class="navbar">
+
+        <h2>🚗 Edit Vehicle</h2>
+
+        <a href="/" class="back-btn">
+            Back Dashboard
+        </a>
+
+    </div>
+
+    <div class="container">
+
+        <div class="card">
+
+            <h2>Update Vehicle Details</h2>
+
+            <form action="/update/{{ vehicle[0] }}" method="POST">
+
+                <input
+                    type="text"
+                    name="vehicle_number"
+                    value="{{ vehicle[1] }}"
+                    placeholder="Vehicle Number"
+                    required
+                >
+
+                <input
+                    type="date"
+                    name="expiry_date"
+                    value="{{ vehicle[2] }}"
+                    required
+                >
+
+                <input
+                    type="text"
+                    name="phone"
+                    value="{{ vehicle[3] }}"
+                    placeholder="Phone Number"
+                    required
+                >
+
+                <input
+                    type="text"
+                    name="owner"
+                    value="{{ vehicle[4] }}"
+                    placeholder="Owner Name"
+                >
+
+                <button type="submit">
+                    Update Vehicle
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>
