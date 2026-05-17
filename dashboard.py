@@ -1,20 +1,5 @@
-from flask import (
-    Flask,
-    render_template,
-    request,
-    redirect,
-    session,
-    url_for,
-    jsonify
-)
-from flask_jwt_extended import (
-
-    JWTManager,
-
-    create_access_token,
-
-    jwt_required
-)
+from flask import Flask, render_template, request, redirect, session, url_for, jsonify
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 
 import sqlite3
 
@@ -31,8 +16,8 @@ DB_FILE = "vehicles.db"
 # LOGIN
 # -------------------------
 
-@app.route("/login", methods=["GET", "POST"])
 
+@app.route("/login", methods=["GET", "POST"])
 def login():
 
     error = None
@@ -43,7 +28,7 @@ def login():
         password = request.form["password"]
 
         # Simple admin login
-        if username == "admin" and password == "admin123":
+        if username == "admin" and password == "app@9098":
 
             session["user"] = username
 
@@ -52,29 +37,29 @@ def login():
         else:
             error = "Invalid credentials"
 
-    return render_template(
-        "login.html",
-        error=error
-    )
+    return render_template("login.html", error=error)
+
 
 # -------------------------
 # LOGOUT
 # -------------------------
 
-@app.route("/logout")
 
+@app.route("/logout")
 def logout():
 
     session.pop("user", None)
 
     return redirect("/login")
 
+
 # -------------------------
 # HOME PAGE
 # -------------------------
 # -------------------------
 # HOME PAGE
 # -------------------------
+
 
 @app.route("/")
 def home():
@@ -90,7 +75,8 @@ def home():
 
     if search:
 
-        cursor.execute("""
+        cursor.execute(
+            """
 
         SELECT *
         FROM vehicles
@@ -99,17 +85,18 @@ def home():
             vehicle_number LIKE ?
             OR owner LIKE ?
 
-        """, (
-            f"%{search}%",
-            f"%{search}%"
-        ))
+        """,
+            (f"%{search}%", f"%{search}%"),
+        )
 
     else:
 
-        cursor.execute("""
+        cursor.execute(
+            """
         SELECT *
         FROM vehicles
-        """)
+        """
+        )
 
     vehicles = cursor.fetchall()
 
@@ -128,10 +115,7 @@ def home():
     active_count = 0
     for vehicle in vehicles:
 
-        expiry = datetime.strptime(
-            vehicle[2],
-            "%Y-%m-%d"
-        )
+        expiry = datetime.strptime(vehicle[2], "%Y-%m-%d")
 
         days_left = (expiry - today).days
 
@@ -151,40 +135,29 @@ def home():
 
     current_date = today.strftime("%Y-%m-%d")
 
-    warning_date = (
-        today + timedelta(days=7)
-    ).strftime("%Y-%m-%d")
+    warning_date = (today + timedelta(days=7)).strftime("%Y-%m-%d")
 
     conn.close()
 
     return render_template(
-
-    "index.html",
-
-    vehicles=vehicles,
-
-    search=search,
-
-    total_vehicles=total_vehicles,
-
-    expired_count=expired_count,
-
-    expiring_count=expiring_count,
-
-    active_count=active_count,
-
-    current_date=current_date,
-
-    warning_date=warning_date
-
+        "index.html",
+        vehicles=vehicles,
+        search=search,
+        total_vehicles=total_vehicles,
+        expired_count=expired_count,
+        expiring_count=expiring_count,
+        active_count=active_count,
+        current_date=current_date,
+        warning_date=warning_date,
     )
+
 
 # -------------------------
 # EDIT PAGE
 # -------------------------
 
-@app.route("/edit/<int:id>")
 
+@app.route("/edit/<int:id>")
 def edit_page(id):
 
     if "user" not in session:
@@ -194,27 +167,28 @@ def edit_page(id):
 
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
     SELECT *
     FROM vehicles
     WHERE id=?
-    """, (id,))
+    """,
+        (id,),
+    )
 
     vehicle = cursor.fetchone()
 
     conn.close()
 
-    return render_template(
-        "edit.html",
-        vehicle=vehicle
-    )
+    return render_template("edit.html", vehicle=vehicle)
+
 
 # -------------------------
 # UPDATE
 # -------------------------
 
-@app.route("/update/<int:id>", methods=["POST"])
 
+@app.route("/update/<int:id>", methods=["POST"])
 def update_vehicle(id):
 
     if "user" not in session:
@@ -229,7 +203,8 @@ def update_vehicle(id):
 
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
 
     UPDATE vehicles
 
@@ -241,25 +216,22 @@ def update_vehicle(id):
 
     WHERE id=?
 
-    """, (
-        vehicle_number,
-        expiry_date,
-        phone,
-        owner,
-        id
-    ))
+    """,
+        (vehicle_number, expiry_date, phone, owner, id),
+    )
 
     conn.commit()
     conn.close()
 
     return redirect("/")
 
+
 # -------------------------
 # PDF REPORT
 # -------------------------
 
-@app.route("/report")
 
+@app.route("/report")
 def generate_report():
 
     if "user" not in session:
@@ -270,7 +242,7 @@ def generate_report():
         Table,
         TableStyle,
         Paragraph,
-        Spacer
+        Spacer,
     )
 
     from reportlab.lib import colors
@@ -286,10 +258,12 @@ def generate_report():
 
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
     SELECT *
     FROM vehicles
-    """)
+    """
+    )
 
     vehicles = cursor.fetchall()
 
@@ -301,78 +275,58 @@ def generate_report():
 
     elements = []
 
-    title = Paragraph(
-        "MV Tax Vehicle Report",
-        styles['Title']
-    )
+    title = Paragraph("MV Tax Vehicle Report", styles["Title"])
 
     elements.append(title)
 
     elements.append(Spacer(1, 20))
 
-    data = [[
-        "ID",
-        "Vehicle",
-        "Expiry",
-        "Phone",
-        "Owner"
-    ]]
+    data = [["ID", "Vehicle", "Expiry", "Phone", "Owner"]]
 
     for vehicle in vehicles:
 
-        data.append([
-            vehicle[0],
-            vehicle[1],
-            vehicle[2],
-            vehicle[3],
-            vehicle[4]
-        ])
+        data.append([vehicle[0], vehicle[1], vehicle[2], vehicle[3], vehicle[4]])
 
     table = Table(data)
 
-    table.setStyle(TableStyle([
-
-        ('BACKGROUND', (0,0), (-1,0), colors.black),
-
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-
-        ('GRID', (0,0), (-1,-1), 1, colors.grey),
-
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-
-        ('BOTTOMPADDING', (0,0), (-1,0), 12),
-
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.black),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 1, colors.grey),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+            ]
+        )
+    )
 
     elements.append(table)
 
     doc.build(elements)
 
-    return send_file(
-        pdf_file,
-        as_attachment=True
-    )
+    return send_file(pdf_file, as_attachment=True)
+
+
 # -------------------------
 # API - GET VEHICLES
 # -------------------------
 
-@app.route(
-    "/api/vehicles",
-    methods=["GET"]
-)
 
+@app.route("/api/vehicles", methods=["GET"])
 @jwt_required()
-
 def api_get_vehicles():
 
     conn = sqlite3.connect(DB_FILE)
 
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
     SELECT *
     FROM vehicles
-    """)
+    """
+    )
 
     vehicles = cursor.fetchall()
 
@@ -382,47 +336,37 @@ def api_get_vehicles():
 
     for vehicle in vehicles:
 
-        vehicle_list.append({
-
-            "id": vehicle[0],
-
-            "vehicle_number": vehicle[1],
-
-            "expiry_date": vehicle[2],
-
-            "phone": vehicle[3],
-
-            "owner": vehicle[4]
-        })
+        vehicle_list.append(
+            {
+                "id": vehicle[0],
+                "vehicle_number": vehicle[1],
+                "expiry_date": vehicle[2],
+                "phone": vehicle[3],
+                "owner": vehicle[4],
+            }
+        )
 
     return jsonify(vehicle_list)
-# -------------------------
-# API - ADD VEHICLE
-# -------------------------
 
-@app.route(
-    "/api/vehicles",
-    methods=["POST"]
-)
 
 # -------------------------
 # API - ADD VEHICLE
 # -------------------------
 
-@app.route(
-    "/api/vehicles",
-    methods=["POST"]
-)
 
+@app.route("/api/vehicles", methods=["POST"])
+
+# -------------------------
+# API - ADD VEHICLE
+# -------------------------
+
+
+@app.route("/api/vehicles", methods=["POST"])
 def api_add_vehicle():
 
     if not request.is_json:
 
-        return jsonify({
-
-            "error": "Request must be JSON"
-
-        }), 415
+        return jsonify({"error": "Request must be JSON"}), 415
 
     data = request.get_json()
 
@@ -435,7 +379,8 @@ def api_add_vehicle():
 
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
 
     INSERT INTO vehicles (
         vehicle_number,
@@ -446,67 +391,59 @@ def api_add_vehicle():
 
     VALUES (?, ?, ?, ?)
 
-    """, (
-        vehicle_number,
-        expiry_date,
-        phone,
-        owner
-    ))
+    """,
+        (vehicle_number, expiry_date, phone, owner),
+    )
 
     conn.commit()
 
     conn.close()
 
-    return jsonify({
+    return jsonify({"message": "Vehicle added successfully"})
 
-        "message": "Vehicle added successfully"
-
-    })
 
 # API - DELETE VEHICLE
 # -------------------------
 
-@app.route(
-    "/api/vehicles/<int:id>",
-    methods=["DELETE"]
-)
 
+@app.route("/api/vehicles/<int:id>", methods=["DELETE"])
 def api_delete_vehicle(id):
 
     conn = sqlite3.connect(DB_FILE)
 
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
 
     DELETE FROM vehicles
 
     WHERE id=?
 
-    """, (id,))
+    """,
+        (id,),
+    )
 
     conn.commit()
 
     conn.close()
 
-    return jsonify({
+    return jsonify({"message": "Vehicle deleted successfully"})
 
-        "message": "Vehicle deleted successfully"
-
-    })
 
 @jwt_required()
-
 def api_get_vehicles():
 
     conn = sqlite3.connect(DB_FILE)
 
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
     SELECT *
     FROM vehicles
-    """)
+    """
+    )
 
     vehicles = cursor.fetchall()
 
@@ -516,29 +453,25 @@ def api_get_vehicles():
 
     for vehicle in vehicles:
 
-        vehicle_list.append({
-
-            "id": vehicle[0],
-
-            "vehicle_number": vehicle[1],
-
-            "expiry_date": vehicle[2],
-
-            "phone": vehicle[3],
-
-            "owner": vehicle[4]
-        })
+        vehicle_list.append(
+            {
+                "id": vehicle[0],
+                "vehicle_number": vehicle[1],
+                "expiry_date": vehicle[2],
+                "phone": vehicle[3],
+                "owner": vehicle[4],
+            }
+        )
 
     return jsonify(vehicle_list)
+
+
 # -------------------------
 # API LOGIN
 # -------------------------
 
-@app.route(
-    "/api/login",
-    methods=["POST"]
-)
 
+@app.route("/api/login", methods=["POST"])
 def api_login():
 
     data = request.get_json()
@@ -548,21 +481,11 @@ def api_login():
 
     if username == "admin" and password == "admin123":
 
-        token = create_access_token(
-            identity=username
-        )
+        token = create_access_token(identity=username)
 
-        return jsonify({
+        return jsonify({"token": token})
 
-            "token": token
-        })
-
-    return jsonify({
-
-        "error": "Invalid credentials"
-
-    }), 401
-
+    return jsonify({"error": "Invalid credentials"}), 401
 
 
 # -------------------------
