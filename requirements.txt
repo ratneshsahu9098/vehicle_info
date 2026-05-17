@@ -1,7 +1,5 @@
-# File: requirements.txt
-
+Flask
+gunicorn
+flask-jwt-extended
 requests
-python-dotenv
-schedule
-flask
-pip freeze > requirements.txt
+reportlab
