@@ -1,7 +1,24 @@
 from flask import Flask, render_template, request, redirect, session, url_for, jsonify
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required
+from flask_jwt_extended import (
+    JWTManager,
+    create_access_token,
+    jwt_required,
+    get_jwt_identity,
+)
+import bcrypt
 from flask_cors import CORS
+import requests
 from datetime import datetime
+import json
+import os
+from flask import send_from_directory
+
+
+UPLOAD_FOLDER = "uploads"
+
+FETCH_RUNNING = False
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 import sqlite3
 
@@ -10,9 +27,57 @@ app = Flask(__name__)
 CORS(app)
 
 app.secret_key = "supersecretkey"
-app.config["JWT_SECRET_KEY"] = "jwt-secret-key"
+# app.config["JWT_SECRET_KEY"] = "jwt-secret-key"
+app.config["JWT_SECRET_KEY"] = "mv_tax_dashboard_super_secret_key_2026_secure"
 
 jwt = JWTManager(app)
+
+def get_current_user(username):
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+
+        SELECT role
+
+        FROM users
+
+        WHERE username=?
+
+        """,
+        (username,)
+    )
+
+    row = cursor.fetchone()
+
+    conn.close()
+
+    if not row:
+
+        return None
+
+    return {
+
+        "username": username,
+
+        "role": row[0]
+
+    }
+
+
+def send_whatsapp_message(phone, message):
+
+    url = "https://api.ultramsg.com/" "instance175927" "/messages/chat"
+
+    payload = {"token": "YOUR_TOKEN", "to": f"91{phone}", "body": message}
+
+    response = requests.post(url, data=payload)
+
+    print(response.text)
+
 
 DB_FILE = "vehicles.db"
 
@@ -24,9 +89,101 @@ conn = sqlite3.connect(DB_FILE)
 
 cursor = conn.cursor()
 
+# USERS TABLE
+
+cursor.execute(
+    """
+
+CREATE TABLE IF NOT EXISTS
+users (
+
+    id INTEGER
+    PRIMARY KEY AUTOINCREMENT,
+
+    username TEXT UNIQUE,
+
+    password TEXT,
+
+    role TEXT
+
+)
+
+"""
+)
+# DEFAULT ADMIN
+
+cursor.execute(
+    """
+
+    INSERT OR IGNORE INTO users (
+
+        username,
+        password,
+        role
+
+    )
+
+    VALUES (?, ?, ?)
+
+""",
+    ("admin", bcrypt.hashpw("admin123".encode(), bcrypt.gensalt()).decode(), "admin"),
+)
+
+# DEFAULT STAFF
+
+cursor.execute(
+    """
+
+    INSERT OR IGNORE INTO users (
+
+        username,
+        password,
+        role
+
+    )
+
+    VALUES (?, ?, ?)
+
+""",
+    ("staff1", bcrypt.hashpw("staff123".encode(), bcrypt.gensalt()).decode(), "staff"),
+)
+
+# DEFAULT VIEWER
+
+cursor.execute(
+    """
+
+    INSERT OR IGNORE INTO users (
+
+        username,
+        password,
+        role
+
+    )
+
+    VALUES (?, ?, ?)
+
+""",
+    (
+        "viewer1",
+        bcrypt.hashpw("viewer123".encode(), bcrypt.gensalt()).decode(),
+        "viewer",
+    ),
+)
+
+# UPLOAD FILES
+
+
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+
 # VEHICLES TABLE
 
-cursor.execute("""
+cursor.execute(
+    """
 
 CREATE TABLE IF NOT EXISTS
 vehicles (
@@ -40,14 +197,60 @@ vehicles (
 
     phone TEXT,
 
-    owner TEXT
+    owner TEXT,
+
+    chassis_last5 TEXT,
+
+    state_name TEXT,
+
+    support_document TEXT,
+    vahan_owner_name TEXT
+
 )
 
-""")
+"""
+)
+
+# DELETED VEHICLES TABLE
+
+cursor.execute(
+    """
+
+CREATE TABLE IF NOT EXISTS
+deleted_vehicles (
+
+    id INTEGER
+    PRIMARY KEY AUTOINCREMENT,
+
+    original_vehicle_id INTEGER,
+
+    vehicle_number TEXT,
+
+    expiry_date TEXT,
+
+    phone TEXT,
+
+    owner TEXT,
+
+    chassis_last5 TEXT,
+
+    state_name TEXT,
+
+    support_document TEXT,
+
+    deleted_by TEXT,
+
+    deleted_at TEXT
+
+)
+
+"""
+)
 
 # HISTORY TABLE
 
-cursor.execute("""
+cursor.execute(
+    """
 
 CREATE TABLE IF NOT EXISTS
 vehicle_history (
@@ -68,7 +271,8 @@ vehicle_history (
     edited_at TEXT
 )
 
-""")
+"""
+)
 
 conn.commit()
 
@@ -78,22 +282,17 @@ conn.close()
 # VEHICLE HISTORY API
 # -------------------------
 
-@app.route(
 
-    "/api/vehicle_history/<int:id>",
-
-    methods=["GET"]
-)
-
+@app.route("/api/vehicle_history/<int:id>", methods=["GET"])
 @jwt_required()
-
 def vehicle_history_api(id):
 
     conn = sqlite3.connect(DB_FILE)
 
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
 
     SELECT
         vehicle_number,
@@ -108,7 +307,9 @@ def vehicle_history_api(id):
 
     ORDER BY id DESC
 
-    """, (id,))
+    """,
+        (id,),
+    )
 
     history = cursor.fetchall()
 
@@ -118,49 +319,236 @@ def vehicle_history_api(id):
 
     for row in history:
 
-        result.append({
-
-            "vehicle_number": row[0],
-
-            "expiry_date": row[1],
-
-            "phone": row[2],
-
-            "owner": row[3],
-
-            "edited_at": row[4]
-        })
+        result.append(
+            {
+                "vehicle_number": row[0],
+                "expiry_date": row[1],
+                "phone": row[2],
+                "owner": row[3],
+                "edited_at": row[4],
+            }
+        )
 
     return jsonify(result)
 
-# -------------------------
-# ADD VEHICLE API
-# -------------------------
 
-@app.route(
-    "/api/add_vehicle",
-    methods=["POST"]
-)
-
+@app.route("/api/fetch_vehicle_info/<vehicle_number>")
 @jwt_required()
+def fetch_vehicle_info(vehicle_number):
 
-def add_vehicle_api():
+    global FETCH_RUNNING
 
-    data = request.get_json()
+    username = get_jwt_identity()
 
-    vehicle_number = data["vehicle_number"]
+    user = get_current_user(username)
 
-    expiry_date = data["expiry_date"]
+    if user["role"] == "viewer":
 
-    phone = data["phone"]
+        FETCH_RUNNING = False
 
-    owner = data["owner"]
+        return jsonify({"error": "Viewer access denied"}), 403
+
+    if FETCH_RUNNING:
+
+        return jsonify({"error": "Fetch already running"}), 429
+
+    FETCH_RUNNING = True
+
+    import subprocess
 
     conn = sqlite3.connect(DB_FILE)
 
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
+
+        SELECT chassis_last5
+
+        FROM vehicles
+
+        WHERE vehicle_number=?
+
+        """,
+        (vehicle_number,),
+    )
+
+    row = cursor.fetchone()
+
+    conn.close()
+
+    if not row:
+
+        FETCH_RUNNING = False
+        return jsonify({"error": "Vehicle not found"}), 404
+
+    chassis_last5 = row[0]
+
+    try:
+
+        result = subprocess.run(
+            ["python", "fetch_vehicle.py", vehicle_number, chassis_last5],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+
+        print(result.stdout)
+
+        # -------------------------
+        # EXTRACT TAX DATE
+        # -------------------------
+
+        output = result.stdout
+
+        tax_upto = None
+        owner_name = None
+
+        output = result.stdout.strip()
+
+        print(output)
+
+        lines = output.splitlines()
+
+        json_line = None
+
+        for line in reversed(lines):
+
+            line = line.strip()
+
+            if line.startswith("{") and line.endswith("}"):
+
+                json_line = line
+
+                break
+
+        if not json_line:
+
+            FETCH_RUNNING = False
+
+            return jsonify(
+                {"error": "JSON output not found"}
+            ), 500
+
+        data = json.loads(json_line)
+
+        tax_upto = data.get(
+            "tax_upto"
+        )
+
+        owner_name = data.get(
+            "owner_name"
+        )
+
+        # -------------------------
+        # TAX EXTRACTION FAILED
+        # -------------------------
+
+        if not tax_upto:
+
+            FETCH_RUNNING = False
+
+            return jsonify({"error": "Tax extraction failed"}), 500
+
+        # -------------------------
+        # CONVERT DATE FORMAT
+        # -------------------------
+
+        from datetime import datetime
+
+        tax_upto = datetime.strptime(tax_upto, "%d-%b-%Y").strftime("%Y-%m-%d")
+
+        # -------------------------
+        # UPDATE DATABASE
+        # -------------------------
+
+        conn = sqlite3.connect(DB_FILE)
+
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+
+            UPDATE vehicles
+
+            SET
+                expiry_date=?,
+                vahan_owner_name=?
+
+            WHERE vehicle_number=?
+
+            """,
+            (tax_upto, owner_name, vehicle_number),
+        )
+
+        conn.commit()
+
+        conn.close()
+
+        print(f"Updated DB: {tax_upto}")
+
+        FETCH_RUNNING = False
+
+        return jsonify(
+            {"vehicle": vehicle_number, "output": result.stdout, "error": result.stderr}
+        )
+
+    except subprocess.TimeoutExpired:
+
+        FETCH_RUNNING = False
+        return jsonify({"error": "Fetch timed out"}), 408
+
+
+# -------------------------
+# ADD VEHICLE API
+# -------------------------
+
+
+@app.route("/api/add_vehicle", methods=["POST"])
+@jwt_required()
+def add_vehicle_api():
+    print("ADD VEHICLE API CALLED")  # temp
+
+    vehicle_number = request.form.get("vehicle_number")
+
+    expiry_date = request.form.get("expiry_date")
+
+    phone = request.form.get("phone")
+
+    owner = request.form.get("owner")
+
+    chassis_last5 = request.form.get("chassis_last5")
+
+    state_name = request.form.get("state_name")
+
+    file = request.files.get("support_document")
+
+    support_document = ""
+    # temp
+    print(vehicle_number)
+
+    print(expiry_date)
+
+    print(phone)
+
+    print(owner)
+
+    print(chassis_last5)
+
+    print(state_name)
+
+    if file:
+
+        support_document = file.filename
+
+        file.save(os.path.join(UPLOAD_FOLDER, support_document))
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
 
 CREATE TABLE IF NOT EXISTS
 vehicle_history (
@@ -181,38 +569,46 @@ vehicle_history (
     edited_at TEXT
 )
 
-""")
+"""
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
 
     INSERT INTO vehicles (
 
         vehicle_number,
         expiry_date,
         phone,
-        owner
+        owner,
+        chassis_last5,
+        state_name,
+        support_document,
+        vahan_owner_name
 
     )
 
-    VALUES (?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 
-    """, (
-
-        vehicle_number,
-        expiry_date,
-        phone,
-        owner
-    ))
+    """,
+        (
+            vehicle_number,
+            expiry_date,
+            phone,
+            owner,
+            chassis_last5,
+            state_name,
+            support_document,
+            "",
+        ),
+    )
 
     conn.commit()
 
     conn.close()
 
-    return jsonify({
+    return jsonify({"message": "Vehicle added"})
 
-        "message":
-        "Vehicle added"
-    })
 
 # -------------------------
 # LOGIN
@@ -242,8 +638,6 @@ def login():
     return render_template("login.html", error=error)
 
 
-
-
 # -------------------------
 # LOGOUT
 # -------------------------
@@ -257,77 +651,268 @@ def logout():
     return redirect("/login")
 
 
-
 # -------------------------
 # DELETE VEHICLE API
 # -------------------------
 
-@app.route(
-    "/api/delete_vehicle/<int:id>",
-    methods=["DELETE"]
-)
 
+@app.route("/api/delete_vehicle/<int:id>", methods=["DELETE"])
 @jwt_required()
-
 def delete_vehicle_api(id):
+
+    username = get_jwt_identity()
+
+    user = get_current_user(username)
+
+    if user["role"] != "admin":
+
+        return jsonify({"error": "Admin access required"}), 403
 
     conn = sqlite3.connect(DB_FILE)
 
     cursor = conn.cursor()
 
-    cursor.execute("""
+    # -------------------------
+    # GET VEHICLE DATA
+    # -------------------------
 
-    DELETE FROM vehicles
+    cursor.execute(
+        """
 
-    WHERE id=?
+        SELECT *
 
-    """, (id,))
+        FROM vehicles
+
+        WHERE id=?
+
+        """,
+        (id,),
+    )
+
+    vehicle = cursor.fetchone()
+
+    # -------------------------
+    # SAVE INTO deleted_vehicles
+    # -------------------------
+
+    from datetime import datetime
+
+    cursor.execute(
+        """
+
+        INSERT INTO deleted_vehicles (
+
+            original_vehicle_id,
+
+            vehicle_number,
+            expiry_date,
+            phone,
+            owner,
+            chassis_last5,
+            state_name,
+            support_document,
+
+            deleted_by,
+            deleted_at
+
+        )
+
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+    """,
+        (
+            vehicle[0],
+            vehicle[1],
+            vehicle[2],
+            vehicle[3],
+            vehicle[4],
+            vehicle[5],
+            vehicle[6],
+            vehicle[7],
+            user["username"],
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ),
+    )
+
+    # -------------------------
+    # DELETE ORIGINAL
+    # -------------------------
+
+    cursor.execute(
+        """
+
+        DELETE FROM vehicles
+
+        WHERE id=?
+
+    """,
+        (id,),
+    )
+    conn.commit()
+
+    conn.close()
+
+    return jsonify({"message": "Vehicle deleted"})
+
+
+# -------------------------
+# RESTORE VEHICLE API
+# -------------------------
+
+
+@app.route("/api/restore_vehicle/<int:id>", methods=["POST"])
+@jwt_required()
+def restore_vehicle(id):
+
+    username = get_jwt_identity()
+
+    user = get_current_user(username)
+
+    if user["role"] != "admin":
+
+        return jsonify({"error": "Admin access required"}), 403
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    # -------------------------
+    # GET DELETED VEHICLE
+    # -------------------------
+
+    cursor.execute(
+        """
+
+        SELECT *
+
+        FROM deleted_vehicles
+
+        WHERE id=?
+
+""",
+        (id,),
+    )
+
+    vehicle = cursor.fetchone()
+
+    if not vehicle:
+
+        conn.close()
+
+        return jsonify({"error": "Vehicle not found"}), 404
+
+    # -------------------------
+    # RESTORE TO vehicles
+    # -------------------------
+
+    cursor.execute(
+        """
+
+        INSERT INTO vehicles (
+
+            vehicle_number,
+            expiry_date,
+            phone,
+            owner,
+            chassis_last5,
+            state_name,
+            support_document
+
+        )
+
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+
+""",
+        (
+            vehicle[2],
+            vehicle[3],
+            vehicle[4],
+            vehicle[5],
+            vehicle[6],
+            vehicle[7],
+            vehicle[8],
+        ),
+    )
+
+    # -------------------------
+    # REMOVE FROM deleted table
+    # -------------------------
+
+    cursor.execute(
+        """
+
+        DELETE FROM deleted_vehicles
+
+        WHERE id=?
+
+""",
+        (id,),
+    )
 
     conn.commit()
 
     conn.close()
 
-    return jsonify({
+    return jsonify({"message": "Vehicle restored"})
 
-        "message":
-        "Vehicle deleted"
-    })
 
 # -------------------------
 # UPDATE VEHICLE API
 # -------------------------
 
-@app.route(
-    "/api/update_vehicle/<int:id>",
-    methods=["PUT"]
-)
 
+@app.route("/api/update_vehicle/<int:id>", methods=["PUT"])
 @jwt_required()
-
 def update_vehicle_api(id):
 
-    data = request.get_json()
+    username = get_jwt_identity()
+
+    user = get_current_user(username)
+
+    if user["role"] == "viewer":
+
+        return jsonify({"error": "Viewer access denied"}), 403
+
+    vehicle_number = request.form.get("vehicle_number")
+
+    expiry_date = request.form.get("expiry_date")
+
+    phone = request.form.get("phone")
+
+    owner = request.form.get("owner")
+
+    chassis_last5 = request.form.get("chassis_last5")
+
+    state_name = request.form.get("state_name")
+
+    file = request.files.get("support_document")
+
+    if file:
+
+        support_document = file.filename
+
+        file.save(os.path.join(UPLOAD_FOLDER, support_document))
 
     conn = sqlite3.connect(DB_FILE)
 
     cursor = conn.cursor()
 
-    #GET OLD DATA
-
     # GET OLD DATA
 
-    cursor.execute(
-        "SELECT * FROM vehicles WHERE id=?",
-        (id,)
-    )
+    cursor.execute("SELECT * FROM vehicles WHERE id=?", (id,))
 
     old_vehicle = cursor.fetchone()
+
+    if not file:
+
+        support_document = old_vehicle[7]
 
     # SAVE INTO HISTORY
 
     from datetime import datetime
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO vehicle_history (
             vehicle_id,
             vehicle_number,
@@ -337,48 +922,52 @@ def update_vehicle_api(id):
             edited_at
         )
         VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        old_vehicle[0],
-        old_vehicle[1],
-        old_vehicle[2],
-        old_vehicle[3],
-        old_vehicle[4],
-        datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
-    ))
+    """,
+        (
+            old_vehicle[0],
+            old_vehicle[1],
+            old_vehicle[2],
+            old_vehicle[3],
+            old_vehicle[4],
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ),
+    )
 
-
-    cursor.execute("""
+    cursor.execute(
+        """
 
     UPDATE vehicles
 
     SET
-      vehicle_number=?,
-      expiry_date=?,
-      phone=?,
-      owner=?
+
+    vehicle_number=?,
+    expiry_date=?,
+    phone=?,
+    owner=?,
+    chassis_last5=?,
+    state_name=?,
+    support_document=?
 
     WHERE id=?
 
-    """, (
-
-        data["vehicle_number"],
-        data["expiry_date"],
-        data["phone"],
-        data["owner"],
-        id
-    ))
+    """,
+        (
+            vehicle_number,
+            expiry_date,
+            phone,
+            owner,
+            chassis_last5,
+            state_name,
+            support_document,
+            id,
+        ),
+    )
 
     conn.commit()
 
     conn.close()
 
-    return jsonify({
-
-        "message":
-        "Vehicle updated"
-    })
+    return jsonify({"message": "Vehicle updated"})
 
 
 # -------------------------
@@ -668,6 +1257,10 @@ def api_get_vehicles():
                 "expiry_date": vehicle[2],
                 "phone": vehicle[3],
                 "owner": vehicle[4],
+                "chassis_last5": vehicle[5],
+                "state_name": vehicle[6],
+                "support_document": vehicle[7],
+                "vahan_owner_name": vehicle[8],
             }
         )
 
@@ -675,30 +1268,28 @@ def api_get_vehicles():
 
 
 # -------------------------
-# API - ADD VEHICLE
+# API - ADD VEHICLE-Deleted
 # -------------------------
 
 
-@app.route("/api/vehicles", methods=["POST"])
-
+# API - DELETE VEHICLE - REMOVED
 # -------------------------
-# API - ADD VEHICLE
+# -------------------------
+# API - GET USERS
 # -------------------------
 
 
-@app.route("/api/vehicles", methods=["POST"])
-def api_add_vehicle():
+@app.route("/api/users", methods=["GET"])
+@jwt_required()
+def get_users():
 
-    if not request.is_json:
+    username = get_jwt_identity()
 
-        return jsonify({"error": "Request must be JSON"}), 415
+    user = get_current_user(username)
 
-    data = request.get_json()
+    if user["role"] != "admin":
 
-    vehicle_number = data.get("vehicle_number")
-    expiry_date = data.get("expiry_date")
-    phone = data.get("phone")
-    owner = data.get("owner")
+        return jsonify({"error": "Admin access required"}), 403
 
     conn = sqlite3.connect(DB_FILE)
 
@@ -707,32 +1298,122 @@ def api_add_vehicle():
     cursor.execute(
         """
 
-    INSERT INTO vehicles (
-        vehicle_number,
-        expiry_date,
-        phone,
-        owner
+        SELECT
+            id,
+            username,
+            role
+
+        FROM users
+
+"""
     )
 
-    VALUES (?, ?, ?, ?)
+    rows = cursor.fetchall()
 
-    """,
-        (vehicle_number, expiry_date, phone, owner),
+    conn.close()
+
+    users = []
+
+    for row in rows:
+
+        users.append({"id": row[0], "username": row[1], "role": row[2]})
+
+    return jsonify(users)
+
+
+# -------------------------
+# API - ADD USER
+# -------------------------
+
+
+@app.route("/api/add_user", methods=["POST"])
+@jwt_required()
+def add_user():
+
+    username = get_jwt_identity()
+
+    user = get_current_user(username)
+
+    if user["role"] != "admin":
+
+        return jsonify({"error": "Admin access required"}), 403
+
+    data = request.get_json()
+
+    username = data.get("username")
+
+    password = data.get("password")
+    hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    role = data.get("role")
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+
+        INSERT INTO users (
+
+            username,
+            password,
+            role
+
+        )
+
+        VALUES (?, ?, ?)
+
+""",
+        (username, hashed_password, role),
     )
 
     conn.commit()
 
     conn.close()
 
-    return jsonify({"message": "Vehicle added successfully"})
+    return jsonify({"message": "User added"})
 
 
-# API - DELETE VEHICLE
+# -------------------------
+# API - DELETE USER
 # -------------------------
 
 
-@app.route("/api/vehicles/<int:id>", methods=["DELETE"])
-def api_delete_vehicle(id):
+@app.route("/api/delete_user/<int:id>", methods=["DELETE"])
+@jwt_required()
+def delete_user(id):
+
+    username = get_jwt_identity()
+
+    user = get_current_user(username)
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+
+            SELECT id
+
+            FROM users
+
+            WHERE username=?
+
+        """,
+        (user["username"],),
+    )
+
+    current_user = cursor.fetchone()
+
+    if current_user and current_user[0] == id:
+
+        conn.close()
+
+        return jsonify({"error": "Cannot delete your own account"}), 400
+
+    if user["role"] != "admin":
+
+        return jsonify({"error": "Admin access required"}), 403
 
     conn = sqlite3.connect(DB_FILE)
 
@@ -741,11 +1422,11 @@ def api_delete_vehicle(id):
     cursor.execute(
         """
 
-    DELETE FROM vehicles
+        DELETE FROM users
 
-    WHERE id=?
+        WHERE id=?
 
-    """,
+""",
         (id,),
     )
 
@@ -753,11 +1434,25 @@ def api_delete_vehicle(id):
 
     conn.close()
 
-    return jsonify({"message": "Vehicle deleted successfully"})
+    return jsonify({"message": "User deleted"})
 
 
+# -------------------------
+# API - CHANGE PASSWORD
+# -------------------------
+
+
+@app.route("/api/change_password", methods=["POST"])
 @jwt_required()
-def api_get_vehicles():
+def change_password():
+
+    username = get_jwt_identity()
+
+    user = get_current_user(username)
+
+    data = request.get_json()
+
+    new_password = data.get("new_password")
 
     conn = sqlite3.connect(DB_FILE)
 
@@ -765,30 +1460,22 @@ def api_get_vehicles():
 
     cursor.execute(
         """
-    SELECT *
-    FROM vehicles
-    """
+
+        UPDATE users
+
+        SET password=?
+
+        WHERE username=?
+
+""",
+        (new_password, user["username"]),
     )
 
-    vehicles = cursor.fetchall()
+    conn.commit()
 
     conn.close()
 
-    vehicle_list = []
-
-    for vehicle in vehicles:
-
-        vehicle_list.append(
-            {
-                "id": vehicle[0],
-                "vehicle_number": vehicle[1],
-                "expiry_date": vehicle[2],
-                "phone": vehicle[3],
-                "owner": vehicle[4],
-            }
-        )
-
-    return jsonify(vehicle_list)
+    return jsonify({"message": "Password updated"})
 
 
 # -------------------------
@@ -804,13 +1491,133 @@ def api_login():
     username = data.get("username")
     password = data.get("password")
 
-    if username == "admin" and password == "admin123":
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+
+        SELECT
+            id,
+            password,
+            role
+
+        FROM users
+
+        WHERE username=?
+
+    """,
+        (username,),
+    )
+
+    user = cursor.fetchone()
+
+    conn.close()
+
+    if user and bcrypt.checkpw(password.encode(), user[1].encode()):
 
         token = create_access_token(identity=username)
 
-        return jsonify({"token": token})
+        return jsonify({"token": token, "role": user[2]})
 
     return jsonify({"error": "Invalid credentials"}), 401
+
+
+# -------------------------
+# GET DELETED VEHICLES
+# -------------------------
+
+
+@app.route("/api/deleted_vehicles", methods=["GET"])
+@jwt_required()
+def get_deleted_vehicles():
+
+    username = get_jwt_identity()
+
+    user = get_current_user(username)
+
+    if user["role"] != "admin":
+
+        return jsonify({"error": "Admin access required"}), 403
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+
+        SELECT *
+
+        FROM deleted_vehicles
+
+        ORDER BY id DESC
+
+"""
+    )
+
+    rows = cursor.fetchall()
+
+    conn.close()
+
+    deleted = []
+
+    for row in rows:
+
+        deleted.append(
+            {
+                "id": row[0],
+                "original_vehicle_id": row[1],
+                "vehicle_number": row[2],
+                "expiry_date": row[3],
+                "phone": row[4],
+                "owner": row[5],
+                "deleted_by": row[9],
+                "deleted_at": row[10],
+            }
+        )
+
+    return jsonify(deleted)
+
+
+# -------------------------
+# PERMANENT DELETE VEHICLE
+# -------------------------
+
+
+@app.route("/api/permanent_delete_vehicle/<int:id>", methods=["DELETE"])
+@jwt_required()
+def permanent_delete_vehicle(id):
+
+    username = get_jwt_identity()
+
+    user = get_current_user(username)
+
+    if user["role"] != "admin":
+
+        return jsonify({"error": "Admin access required"}), 403
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+
+        DELETE FROM deleted_vehicles
+
+        WHERE id=?
+
+""",
+        (id,),
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    return jsonify({"message": "Vehicle permanently deleted"})
 
 
 # -------------------------

@@ -27,6 +27,10 @@ function Login() {
         "token",
         response.data.token
       );
+      localStorage.setItem(
+        "role",
+        response.data.role
+      )
 
       window.location.href =
         "/dashboard";

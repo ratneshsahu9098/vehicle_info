@@ -11,14 +11,57 @@ import { CSVLink }
 
 function Dashboard() {
 
-    
-    const [historyData,
-setHistoryData] =
-useState([]);
+    const [
+        changePasswordValue,
 
-const [showHistory,
-setShowHistory] =
-useState(false);
+        setChangePasswordValue
+
+    ] = useState("");
+
+    const [
+        deletedVehicles,
+
+        setDeletedVehicles
+
+    ] = useState([]);
+
+    const [showPasswordBox,
+        setShowPasswordBox] =
+        useState(false);
+
+    const [newUsername,
+        setNewUsername] =
+        useState("");
+
+    const [newPassword,
+        setNewPassword] =
+        useState("");
+
+    const [newRole,
+        setNewRole] =
+        useState("staff");
+    const [users, setUsers] =
+        useState([]);
+
+    const role =
+        localStorage.getItem(
+            "role"
+        );
+
+    const [fetching, setFetching] =
+        useState(false);
+
+    const [selectedVehicle,
+        setSelectedVehicle] =
+        useState(null);
+
+    const [historyData,
+        setHistoryData] =
+        useState([]);
+
+    const [showHistory,
+        setShowHistory] =
+        useState(false);
 
     const [vehicles, setVehicles] =
         useState([]);
@@ -35,6 +78,12 @@ useState(false);
         setVehicleNumber] =
         useState("");
 
+    const [chassisLast5, setChassisLast5] = useState("");
+
+    const [stateName, setStateName] = useState("");
+
+    const [supportDocument, setSupportDocument] = useState(null);
+
     const [expiryDate,
         setExpiryDate] =
         useState("");
@@ -49,6 +98,10 @@ useState(false);
     useEffect(() => {
 
         fetchVehicles();
+
+        fetchUsers();
+
+        fetchDeletedVehicles();
 
     }, []);
 
@@ -78,6 +131,137 @@ useState(false);
 
             console.log(error);
         }
+    };
+    const fetchUsers = async () => {
+
+        try {
+
+            const token =
+                localStorage.getItem(
+                    "token"
+                );
+
+            const response =
+                await axios.get(
+
+                    "http://127.0.0.1:5000/api/users",
+
+                    {
+
+                        headers: {
+
+                            Authorization:
+                                `Bearer ${token}`
+
+                        }
+
+                    }
+
+                );
+
+            setUsers(
+                response.data
+            );
+
+        } catch (err) {
+
+            console.log(err);
+
+        }
+
+    };
+    const fetchDeletedVehicles =
+        async () => {
+
+            try {
+
+                const token =
+                    localStorage.getItem(
+                        "token"
+                    );
+
+                const response =
+                    await axios.get(
+
+                        "http://127.0.0.1:5000/api/deleted_vehicles",
+
+                        {
+
+                            headers: {
+
+                                Authorization:
+                                    `Bearer ${token}`
+
+                            }
+
+                        }
+
+                    );
+
+                setDeletedVehicles(
+                    response.data
+                );
+
+            } catch (err) {
+
+                console.log(err);
+
+            }
+
+        };
+    const addUser = async () => {
+
+        try {
+
+            const token =
+                localStorage.getItem(
+                    "token"
+                );
+
+            await axios.post(
+
+                "http://127.0.0.1:5000/api/add_user",
+
+                {
+
+                    username:
+                        newUsername,
+
+                    password:
+                        newPassword,
+
+                    role:
+                        newRole
+
+                },
+
+                {
+
+                    headers: {
+
+                        Authorization:
+                            `Bearer ${token}`
+
+                    }
+
+                }
+
+            );
+
+            setNewUsername("");
+
+            setNewPassword("");
+
+            setNewRole("staff");
+
+            fetchUsers();
+
+        } catch (err) {
+
+            console.log(err);
+
+        }
+
     };
 
     const today = new Date();
@@ -129,6 +313,136 @@ useState(false);
             return diff > 7;
         }
     );
+    const normalizeState = (
+        state
+    ) => {
+
+        const value =
+            state.trim().toLowerCase();
+
+        const states = {
+
+            ap: "Andhra Pradesh",
+            "andhra pradesh": "Andhra Pradesh",
+
+            ar: "Arunachal Pradesh",
+            "arunachal pradesh": "Arunachal Pradesh",
+
+            as: "Assam",
+            assam: "Assam",
+
+            br: "Bihar",
+            bihar: "Bihar",
+
+            cg: "Chhattisgarh",
+            chhattisgarh: "Chhattisgarh",
+
+            ga: "Goa",
+            goa: "Goa",
+
+            gj: "Gujarat",
+            gujarat: "Gujarat",
+
+            hr: "Haryana",
+            haryana: "Haryana",
+
+            hp: "Himachal Pradesh",
+            "himachal pradesh": "Himachal Pradesh",
+
+            jh: "Jharkhand",
+            jharkhand: "Jharkhand",
+
+            ka: "Karnataka",
+            karnataka: "Karnataka",
+
+            kl: "Kerala",
+            kerala: "Kerala",
+
+            mp: "Madhya Pradesh",
+            "madhya pradesh": "Madhya Pradesh",
+
+            mh: "Maharashtra",
+            maharashtra: "Maharashtra",
+
+            mn: "Manipur",
+            manipur: "Manipur",
+
+            ml: "Meghalaya",
+            meghalaya: "Meghalaya",
+
+            mz: "Mizoram",
+            mizoram: "Mizoram",
+
+            nl: "Nagaland",
+            nagaland: "Nagaland",
+
+            od: "Odisha",
+            orissa: "Odisha",
+            odisha: "Odisha",
+
+            pb: "Punjab",
+            punjab: "Punjab",
+
+            rj: "Rajasthan",
+            rajasthan: "Rajasthan",
+
+            sk: "Sikkim",
+            sikkim: "Sikkim",
+
+            tn: "Tamil Nadu",
+            "tamil nadu": "Tamil Nadu",
+
+            ts: "Telangana",
+            telangana: "Telangana",
+
+            tr: "Tripura",
+            tripura: "Tripura",
+
+            up: "Uttar Pradesh",
+            "uttar pradesh": "Uttar Pradesh",
+
+            uk: "Uttarakhand",
+            uttarakhand: "Uttarakhand",
+
+            wb: "West Bengal",
+            "west bengal": "West Bengal",
+
+            an: "Andaman and Nicobar Islands",
+
+            ch: "Chandigarh",
+
+            dh: "Dadra and Nagar Haveli and Daman and Diu",
+
+            dl: "Delhi",
+
+            jk: "Jammu and Kashmir",
+
+            la: "Ladakh",
+
+            ld: "Lakshadweep",
+
+            py: "Puducherry"
+
+        };
+
+        return (
+            states[value] || state
+        );
+    };
+    const detectStateFromVehicle = (
+        vehicle
+    ) => {
+
+        const code =
+            vehicle
+                .slice(0, 2)
+                .toLowerCase();
+
+        return normalizeState(
+            code
+        );
+
+    };
     const addVehicle = async () => {
 
         try {
@@ -136,39 +450,96 @@ useState(false);
             const token =
                 localStorage.getItem("token");
 
+            const formData =
+                new FormData();
+
+            formData.append(
+                "vehicle_number",
+                vehicleNumber
+            );
+
+            formData.append(
+                "expiry_date",
+                expiryDate
+            );
+
+            formData.append(
+                "phone",
+                phone
+            );
+
+            formData.append(
+                "owner",
+                owner
+            );
+
+            formData.append(
+                "chassis_last5",
+                chassisLast5
+            );
+
+            formData.append(
+                "state_name",
+
+                normalizeState(
+                    stateName
+                )
+
+            );
+
+            if (supportDocument) {
+
+                formData.append(
+
+                    "support_document",
+
+                    supportDocument
+
+                );
+
+            }
+
             await axios.post(
 
                 "http://127.0.0.1:5000/api/add_vehicle",
 
-                {
-
-                    vehicle_number:
-                        vehicleNumber,
-
-                    expiry_date:
-                        expiryDate,
-
-                    phone,
-
-                    owner
-                },
+                formData,
 
                 {
+
                     headers: {
 
                         Authorization:
-                            `Bearer ${token}`
+                            `Bearer ${token}`,
+
+                        "Content-Type":
+                            "multipart/form-data"
+
                     }
+
                 }
+
             );
 
             fetchVehicles();
 
+
+
             setVehicleNumber("");
+
             setExpiryDate("");
+
             setPhone("");
+
             setOwner("");
 
+            setChassisLast5("");
+
+            setStateName("");
+
+            setSupportDocument(null);
+
+            fetchVehicles();
         } catch (error) {
 
             console.log(error);
@@ -204,6 +575,13 @@ useState(false);
     };
 
     const startEdit = (vehicle) => {
+        setChassisLast5(
+            vehicle.chassis_last5 || ""
+        );
+
+        setStateName(
+            vehicle.state_name || ""
+        );
 
         setEditingId(vehicle.id);
 
@@ -226,38 +604,87 @@ useState(false);
             const token =
                 localStorage.getItem("token");
 
+            const formData =
+                new FormData();
+
+            formData.append(
+                "vehicle_number",
+                vehicleNumber
+            );
+
+            formData.append(
+                "expiry_date",
+                expiryDate
+            );
+
+            formData.append(
+                "phone",
+                phone
+            );
+
+            formData.append(
+                "owner",
+                owner
+            );
+
+            formData.append(
+                "chassis_last5",
+                chassisLast5
+            );
+
+            formData.append(
+                "state_name",
+                normalizeState(
+                    stateName
+                )
+            );
+
+            if (supportDocument) {
+
+                formData.append(
+                    "support_document",
+                    supportDocument
+                );
+
+            }
+
             await axios.put(
 
                 `http://127.0.0.1:5000/api/update_vehicle/${editingId}`,
 
-                {
-
-                    vehicle_number:
-                        vehicleNumber,
-
-                    expiry_date:
-                        expiryDate,
-
-                    phone,
-
-                    owner
-                },
+                formData,
 
                 {
+
                     headers: {
 
                         Authorization:
-                            `Bearer ${token}`
+                            `Bearer ${token}`,
+
+                        "Content-Type":
+                            "multipart/form-data"
+
                     }
+
                 }
+
             );
 
             setEditingId(null);
 
             setVehicleNumber("");
+
             setExpiryDate("");
+
             setPhone("");
+
             setOwner("");
+
+            setChassisLast5("");
+
+            setStateName("");
+
+            setSupportDocument(null);
 
             fetchVehicles();
 
@@ -265,6 +692,15 @@ useState(false);
 
             console.log(error);
         }
+    };
+    const openVehicleInfo = (
+        vehicle
+    ) => {
+
+        setSelectedVehicle(
+            vehicle
+        );
+
     };
 
     const filteredVehicles =
@@ -287,7 +723,6 @@ useState(false);
                     )
             );
         });
-
     const sendWhatsApp = (vehicle) => {
 
         const message = `
@@ -299,10 +734,13 @@ Hello ${vehicle.owner},
 Vehicle:
 ${vehicle.vehicle_number}
 
-Tax expiry:
+Chassis Last 5 Digit is:
+${vehicle.chassis_last5}
+
+Tax Expiry:
 ${vehicle.expiry_date}
 
-Please renew soon.
+Please renew your tax soon.
 
 `;
 
@@ -313,42 +751,91 @@ Please renew soon.
         window.open(url, "_blank");
     };
 
+    const fetchVehicleInfo =
+        async (vehicleNumber) => {
+
+            try {
+
+                const token =
+                    localStorage.getItem(
+                        "token"
+                    );
+
+                const response =
+                    await axios.get(
+
+                        `http://127.0.0.1:5000/api/fetch_vehicle_info/${vehicleNumber}`,
+
+                        {
+
+                            headers: {
+
+                                Authorization:
+                                    `Bearer ${token}`
+
+                            }
+
+                        }
+
+                    );
+
+                console.log(
+                    response.data
+                );
+
+                alert(
+                    "Fetch started"
+                );
+
+            }
+
+            catch (error) {
+
+                console.log(error);
+
+                alert(
+                    "Fetch failed"
+                );
+
+            }
+
+        };
     const viewHistory = async (id) => {
 
-  try {
+        try {
 
-    const token =
-      localStorage.getItem("token");
+            const token =
+                localStorage.getItem("token");
 
-    const response =
-      await axios.get(
+            const response =
+                await axios.get(
 
-        `http://127.0.0.1:5000/api/vehicle_history/${id}`,
+                    `http://127.0.0.1:5000/api/vehicle_history/${id}`,
 
-        {
-          headers: {
+                    {
+                        headers: {
 
-            Authorization:
-              `Bearer ${token}`
-          }
+                            Authorization:
+                                `Bearer ${token}`
+                        }
+                    }
+                );
+
+            console.log(
+                response.data
+            );
+
+            setHistoryData(
+                response.data
+            );
+
+            setShowHistory(true);
+
+        } catch (error) {
+
+            console.log(error);
         }
-      );
-
-    console.log(
-      response.data
-    );
-
-    setHistoryData(
-      response.data
-    );
-
-    setShowHistory(true);
-
-  } catch (error) {
-
-    console.log(error);
-  }
-};
+    };
 
     return (
 
@@ -418,9 +905,23 @@ Please renew soon.
                     type="text"
                     placeholder="Vehicle Number"
                     value={vehicleNumber}
-                    onChange={(e) =>
-                        setVehicleNumber(e.target.value)
-                    }
+                    onChange={(e) => {
+
+                        const value =
+                            e.target.value;
+
+                        setVehicleNumber(
+                            value.toUpperCase()
+                        )
+                        setStateName(
+
+                            detectStateFromVehicle(
+                                value
+                            )
+
+                        );
+
+                    }}
                 />
 
                 <input
@@ -445,7 +946,51 @@ Please renew soon.
                     placeholder="Owner"
                     value={owner}
                     onChange={(e) =>
-                        setOwner(e.target.value)
+                        setOwner(e.target.value.toUpperCase())
+                    }
+                />
+                <input
+
+                    type="text"
+
+                    placeholder="
+    Last 5 Chassis Digits
+    "
+
+                    value={chassisLast5}
+
+                    maxLength={5}
+
+                    onChange={(e) =>
+
+                        setChassisLast5(
+
+                            e.target.value
+                                .toUpperCase()
+
+                        )
+
+                    }
+
+                />
+
+                <input
+                    type="text"
+                    placeholder="State Name"
+                    value={stateName}
+                    onChange={(e) =>
+                        setStateName(
+                            e.target.value
+                        )
+                    }
+                />
+
+                <input
+                    type="file"
+                    onChange={(e) =>
+                        setSupportDocument(
+                            e.target.files[0]
+                        )
                     }
                 />
 
@@ -558,6 +1103,9 @@ Please renew soon.
                                 <th>Expiry</th>
                                 <th>Phone</th>
                                 <th>Owner</th>
+                                <th>
+                                    VAHAN Owner
+                                </th>
                                 <th>Status</th>
                                 <th>Actions</th>
 
@@ -584,6 +1132,12 @@ Please renew soon.
                                     <td>{vehicle.phone}</td>
 
                                     <td>{vehicle.owner}</td>
+                                    <td>
+                                        {
+                                            vehicle.vahan_owner_name
+                                            || "-"
+                                        }
+                                    </td>
                                     <td>
 
                                         {
@@ -660,21 +1214,19 @@ Please renew soon.
                                     <td>
 
 
-                                        <button
+                                        {
+                                            role !== "viewer" && (
 
-                                            onClick={() =>
-                                                startEdit(vehicle)
-                                            }
+                                                <button
+                                                    onClick={() =>
+                                                        startEdit(vehicle)
+                                                    }
+                                                >
+                                                    Edit
+                                                </button>
 
-                                            style={{
-                                                background: "orange",
-                                                marginRight: "10px"
-                                            }}
-                                        >
-
-                                            Edit
-
-                                        </button>
+                                            )
+                                        }
 
                                         <button
 
@@ -706,20 +1258,99 @@ Please renew soon.
                                             History
 
                                         </button>
+                                        {
+                                            role !== "viewer" && (
+
+                                                <button
+
+                                                    disabled={fetching}
+
+                                                    onClick={async () => {
+
+                                                        setFetching(true);
+
+                                                        try {
+
+                                                            const token =
+                                                                localStorage.getItem(
+                                                                    "token"
+                                                                );
+
+                                                            await axios.get(
+
+                                                                `http://127.0.0.1:5000/api/fetch_vehicle_info/${vehicle.vehicle_number}`,
+
+                                                                {
+
+                                                                    headers: {
+
+                                                                        Authorization:
+                                                                            `Bearer ${token}`
+
+                                                                    }
+
+                                                                }
+
+                                                            );
+
+                                                            await fetchVehicles();
+
+                                                        } catch (err) {
+
+                                                            console.log(err);
+
+                                                        }
+
+                                                        setFetching(false);
+
+                                                    }}
+
+                                                >
+
+                                                    {
+                                                        fetching
+                                                            ? "Fetching..."
+                                                            : "Fetch Info"
+                                                    }
+
+                                                </button>
+
+                                            )
+                                        }
+
+                                        {/*vehicle info*/}
                                         <button
 
                                             onClick={() =>
-                                                deleteVehicle(vehicle.id)
+                                                openVehicleInfo(vehicle)
                                             }
 
-                                            style={{
-                                                background: "red"
-                                            }}
+                                            className="
+        bg-cyan-600
+        text-white
+        px-3
+        py-1
+        rounded
+    "
+
                                         >
 
-                                            Delete
+                                            View Vehicle Info
 
                                         </button>
+                                        {
+                                            role === "admin" && (
+
+                                                <button
+                                                    onClick={() =>
+                                                        deleteVehicle(vehicle.id)
+                                                    }
+                                                >
+                                                    Delete
+                                                </button>
+
+                                            )
+                                        }
 
                                     </td>
 
@@ -733,124 +1364,663 @@ Please renew soon.
                 </div>
 
             </div>
-{
+            {
 
-  showHistory && (
+                showHistory && (
 
-    <div
-      style={{
+                    <div
+                        style={{
 
-        position: "fixed",
+                            position: "fixed",
 
-        top: 0,
-        left: 0,
+                            top: 0,
+                            left: 0,
 
-        width: "100%",
-        height: "100%",
+                            width: "100%",
+                            height: "100%",
 
-        background:
-          "rgba(0,0,0,0.5)",
+                            background:
+                                "rgba(0,0,0,0.5)",
 
-        display: "flex",
+                            display: "flex",
 
-        justifyContent:
-          "center",
+                            justifyContent:
+                                "center",
 
-        alignItems:
-          "center"
-      }}
-    >
+                            alignItems:
+                                "center"
+                        }}
+                    >
 
-      <div
-        style={{
+                        <div
+                            style={{
 
-          background: "white",
+                                background: "white",
 
-          padding: "20px",
+                                padding: "20px",
 
-          borderRadius: "10px",
+                                borderRadius: "10px",
 
-          width: "700px"
-        }}
-      >
+                                width: "700px"
+                            }}
+                        >
 
-        <h2>
-          Vehicle History
-        </h2>
+                            <h2>
+                                Vehicle History
+                            </h2>
 
-        <button
+                            <button
 
-          onClick={() =>
-            setShowHistory(false)
-          }
+                                onClick={() =>
+                                    setShowHistory(false)
+                                }
 
-          style={{
-            background: "red",
-            marginBottom: "20px"
-          }}
-        >
+                                style={{
+                                    background: "red",
+                                    marginBottom: "20px"
+                                }}
+                            >
 
-          Close
+                                Close
 
-        </button>
+                            </button>
 
-        <table>
+                            <table>
 
-          <thead>
+                                <thead>
 
-            <tr>
+                                    <tr>
 
-              <th>Vehicle</th>
-              <th>Expiry</th>
-              <th>Phone</th>
-              <th>Owner</th>
-              <th>Edited At</th>
+                                        <th>Vehicle</th>
+                                        <th>Expiry</th>
+                                        <th>Phone</th>
+                                        <th>Owner</th>
+                                        <th>Edited At</th>
 
-            </tr>
+                                    </tr>
 
-          </thead>
+                                </thead>
 
-          <tbody>
+                                <tbody>
 
-            {historyData.map(
-              (item, index) => (
+                                    {historyData.map(
+                                        (item, index) => (
 
-              <tr key={index}>
+                                            <tr key={index}>
 
-                <td>
-                  {item.vehicle_number}
-                </td>
+                                                <td>
+                                                    {item.vehicle_number}
+                                                </td>
 
-                <td>
-                  {item.expiry_date}
-                </td>
+                                                <td>
+                                                    {item.expiry_date}
+                                                </td>
 
-                <td>
-                  {item.phone}
-                </td>
+                                                <td>
+                                                    {item.phone}
+                                                </td>
 
-                <td>
-                  {item.owner}
-                </td>
+                                                <td>
+                                                    {item.owner}
+                                                </td>
 
-                <td>
-                  {item.edited_at}
-                </td>
+                                                <td>
+                                                    {item.edited_at}
+                                                </td>
 
-              </tr>
-            ))}
+                                            </tr>
+                                        ))}
 
-          </tbody>
+                                </tbody>
 
-        </table>
+                            </table>
 
-      </div>
+                        </div>
 
-    </div>
-  )
-}
+                    </div>
+                )
+            }
+            {
+                selectedVehicle && (
+
+                    <div
+                        style={{
+
+                            position: "fixed",
+
+                            top: 0,
+                            left: 0,
+
+                            width: "100%",
+                            height: "100%",
+
+                            background:
+                                "rgba(0,0,0,0.5)",
+
+                            display: "flex",
+
+                            justifyContent:
+                                "center",
+
+                            alignItems:
+                                "center",
+
+                            zIndex: 9999
+
+                        }}
+                    >
+
+                        <div
+                            style={{
+
+                                background: "white",
+
+                                padding: "20px",
+
+                                borderRadius: "10px",
+
+                                width: "500px"
+
+                            }}
+                        >
+
+                            <h2>
+                                Vehicle Info
+                            </h2>
+
+                            <p>
+
+                                <strong>
+                                    Vehicle:
+                                </strong>
+
+                                {" "}
+
+                                {
+                                    selectedVehicle
+                                        .vehicle_number
+                                }
+
+                            </p>
+
+                            <p>
+
+                                <strong>
+                                    Chassis Last 5:
+                                </strong>
+
+                                {" "}
+
+                                {
+                                    selectedVehicle
+                                        .chassis_last5
+                                }
+
+                            </p>
+
+                            <p>
+
+                                <strong>
+                                    State:
+                                </strong>
+
+                                {" "}
+
+                                {
+                                    selectedVehicle
+                                        .state_name
+                                }
+
+                            </p>
+
+                            <p>
+
+                                <strong>
+                                    Support Document:
+                                    {
+
+                                        selectedVehicle
+                                            ?.support_document && (
+
+                                            <a
+
+                                                href={
+
+                                                    `http://127.0.0.1:5000/uploads/${selectedVehicle.support_document
+                                                    }`
+
+                                                }
+
+                                                target="_blank"
+
+                                                rel="noreferrer"
+
+                                                style={{
+
+                                                    color: "blue",
+
+                                                    textDecoration:
+                                                        "underline"
+
+                                                }}
+
+                                            >
+
+                                                Open Document
+
+                                            </a>
+
+                                        )
+                                    }
+                                </strong>
+
+                                {" "}
+
+                                {
+                                    selectedVehicle
+                                        .support_document
+                                }
+
+                            </p>
+
+                            <button
+
+                                onClick={() =>
+                                    setSelectedVehicle(
+                                        null
+                                    )
+                                }
+
+                                style={{
+                                    background: "red",
+                                    marginTop: "20px"
+                                }}
+
+                            >
+
+                                Close
+
+                            </button>
+
+                        </div>
+
+                    </div>
+                )
+            }
+            {
+                role === "admin" && (
+
+                    <div className="table-container">
+
+                        <h2>
+                            Users
+                        </h2>
+
+                        <div
+                            style={{
+                                marginBottom: "20px"
+                            }}
+                        >
+
+                            <input
+
+                                type="text"
+
+                                placeholder="Username"
+
+                                value={newUsername}
+
+                                onChange={(e) =>
+                                    setNewUsername(
+                                        e.target.value
+                                    )
+                                }
+
+                            />
+
+                            <input
+
+                                type="password"
+
+                                placeholder="Password"
+
+                                value={newPassword}
+
+                                onChange={(e) =>
+                                    setNewPassword(
+                                        e.target.value
+                                    )
+                                }
+
+                            />
+
+                            <select
+
+                                value={newRole}
+
+                                onChange={(e) =>
+                                    setNewRole(
+                                        e.target.value
+                                    )
+                                }
+
+                            >
+
+                                <option value="staff">
+                                    Staff
+                                </option>
+
+                                <option value="viewer">
+                                    Viewer
+                                </option>
+
+                                <option value="admin">
+                                    Admin
+                                </option>
+
+                            </select>
+
+                            <button
+                                onClick={addUser}
+                            >
+
+                                Add User
+
+                            </button>
+
+                        </div>
+
+                        <table>
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>ID</th>
+
+                                    <th>Username</th>
+
+                                    <th>Role</th>
+                                    <th>
+                                        Actions
+                                    </th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                {
+                                    users.map((user) => (
+
+                                        <tr key={user.id}>
+
+                                            <td>
+                                                {user.id}
+                                            </td>
+
+                                            <td>
+                                                {user.username}
+                                            </td>
+
+                                            <td>
+                                                {user.role}
+                                            </td>
+                                            <td>
+
+                                                <button
+
+                                                    onClick={async () => {
+
+                                                        try {
+
+                                                            const token =
+                                                                localStorage.getItem(
+                                                                    "token"
+                                                                );
+
+                                                            await axios.delete(
+
+                                                                `http://127.0.0.1:5000/api/delete_user/${user.id}`,
+
+                                                                {
+
+                                                                    headers: {
+
+                                                                        Authorization:
+                                                                            `Bearer ${token}`
+
+                                                                    }
+
+                                                                }
+
+                                                            );
+
+                                                            fetchUsers();
+
+                                                        } catch (err) {
+
+                                                            console.log(err);
+
+                                                        }
+
+                                                    }}
+
+                                                    style={{
+                                                        background: "red"
+                                                    }}
+
+                                                >
+
+                                                    Delete
+
+                                                </button>
+
+                                            </td>
+
+                                        </tr>
+
+                                    ))
+                                }
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+                )
+            }
+            {
+                role === "admin" && (
+
+                    <div className="table-container">
+
+                        <h2>
+                            Deleted Vehicles
+                        </h2>
+
+                        <table>
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>ID</th>
+
+                                    <th>Vehicle</th>
+
+                                    <th>Owner</th>
+
+                                    <th>Deleted By</th>
+
+                                    <th>Deleted At</th>
+
+                                    <th>Actions</th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                {
+                                    deletedVehicles.map(
+
+                                        (vehicle) => (
+
+                                            <tr key={vehicle.id}>
+
+                                                <td>
+                                                    {vehicle.id}
+                                                </td>
+
+                                                <td>
+                                                    {
+                                                        vehicle.vehicle_number
+                                                    }
+                                                </td>
+
+                                                <td>
+                                                    {
+                                                        vehicle.owner
+                                                    }
+                                                </td>
+
+                                                <td>
+                                                    {
+                                                        vehicle.deleted_by
+                                                    }
+                                                </td>
+
+                                                <td>
+                                                    {
+                                                        vehicle.deleted_at
+                                                    }
+                                                </td>
+
+                                                <td>
+
+                                                    <button
+
+                                                        onClick={async () => {
+
+                                                            try {
+
+                                                                const token =
+                                                                    localStorage.getItem(
+                                                                        "token"
+                                                                    );
+
+                                                                await axios.post(
+
+                                                                    `http://127.0.0.1:5000/api/restore_vehicle/${vehicle.id}`,
+
+                                                                    {},
+
+                                                                    {
+
+                                                                        headers: {
+
+                                                                            Authorization:
+                                                                                `Bearer ${token}`
+
+                                                                        }
+
+                                                                    }
+
+                                                                );
+
+                                                                fetchVehicles();
+
+                                                                fetchDeletedVehicles();
+
+                                                            } catch (err) {
+
+                                                                console.log(err);
+
+                                                            }
+
+                                                        }}
+
+                                                        style={{
+                                                            background: "green"
+                                                        }}
+
+                                                    >
+
+                                                        Restore
+
+                                                    </button>
+                                                    <button
+
+                                                        onClick={async () => {
+
+                                                            try {
+
+                                                                const token =
+                                                                    localStorage.getItem(
+                                                                        "token"
+                                                                    );
+
+                                                                await axios.delete(
+
+                                                                    `http://127.0.0.1:5000/api/permanent_delete_vehicle/${vehicle.id}`,
+
+                                                                    {
+
+                                                                        headers: {
+
+                                                                            Authorization:
+                                                                                `Bearer ${token}`
+
+                                                                        }
+
+                                                                    }
+
+                                                                );
+
+                                                                fetchDeletedVehicles();
+
+                                                            } catch (err) {
+
+                                                                console.log(err);
+
+                                                            }
+
+                                                        }}
+
+                                                        style={{
+                                                            background: "red",
+                                                            marginLeft: "10px"
+                                                        }}
+
+                                                    >
+
+                                                        Permanent Delete
+
+                                                    </button>
+
+                                                </td>
+
+                                            </tr>
+
+                                        )
+
+                                    )
+                                }
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                )
+            }
         </div>
-        
+
+
     );
 
 }
